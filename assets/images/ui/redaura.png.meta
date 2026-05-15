@@ -2,7 +2,7 @@
   "ver": "1.0.27",
   "importer": "image",
   "imported": true,
-  "uuid": "36f45fe3-7b7e-4825-8098-ca59705af658",
+  "uuid": "58ee3f35-406e-4ee8-9a75-36373a9eff86",
   "files": [
     ".json",
     ".png"
@@ -10,14 +10,14 @@
   "subMetas": {
     "6c48a": {
       "importer": "texture",
-      "uuid": "36f45fe3-7b7e-4825-8098-ca59705af658@6c48a",
+      "uuid": "58ee3f35-406e-4ee8-9a75-36373a9eff86@6c48a",
       "displayName": "redaura",
       "id": "6c48a",
       "name": "texture",
       "userData": {
         "wrapModeS": "clamp-to-edge",
         "wrapModeT": "clamp-to-edge",
-        "imageUuidOrDatabaseUri": "36f45fe3-7b7e-4825-8098-ca59705af658",
+        "imageUuidOrDatabaseUri": "58ee3f35-406e-4ee8-9a75-36373a9eff86",
         "isUuid": true,
         "visible": false,
         "minfilter": "linear",
@@ -34,7 +34,7 @@
     },
     "f9941": {
       "importer": "sprite-frame",
-      "uuid": "36f45fe3-7b7e-4825-8098-ca59705af658@f9941",
+      "uuid": "58ee3f35-406e-4ee8-9a75-36373a9eff86@f9941",
       "displayName": "redaura",
       "id": "f9941",
       "name": "spriteFrame",
@@ -113,7 +113,7 @@
           ]
         },
         "isUuid": true,
-        "imageUuidOrDatabaseUri": "36f45fe3-7b7e-4825-8098-ca59705af658@6c48a",
+        "imageUuidOrDatabaseUri": "58ee3f35-406e-4ee8-9a75-36373a9eff86@6c48a",
         "atlasUuid": "",
         "trimType": "auto"
       },
@@ -129,6 +129,6 @@
     "type": "sprite-frame",
     "fixAlphaTransparencyArtifacts": false,
     "hasAlpha": true,
-    "redirect": "36f45fe3-7b7e-4825-8098-ca59705af658@6c48a"
+    "redirect": "58ee3f35-406e-4ee8-9a75-36373a9eff86@6c48a"
   }
 }
