@@ -75,6 +75,7 @@ import {
 import { BoardZoomController } from './BoardZoomController';
 import { SoundManager } from './SoundManager';
 import { SnakeFaceController } from './SnakeFaceController';
+import { LevelCompleteEffect } from './LevelCompleteEffect';
 
 const { ccclass, property } = _decorator;
 
@@ -136,6 +137,12 @@ export class SnakeEscapeGame extends Component {
 
     @property(Node)
     winPanel: Node = null!;
+
+    @property(Prefab)
+    levelCompleteEffectPrefab: Prefab | null = null;
+
+    @property([SpriteFrame])
+    endgameEffectFrames: SpriteFrame[] = [];
 
     @property(SoundManager)
     soundManager: SoundManager | null = null;
@@ -210,6 +217,12 @@ export class SnakeEscapeGame extends Component {
     private zoomTrackNode: Node | null = null;
     private zoomHandleNode: Node | null = null;
     private zoomPercentLabel: Label | null = null;
+    private levelCompleteEffect: LevelCompleteEffect | null = null;
+    private levelCompleteEffectNode: Node | null = null;
+    private endgameEffectRoot: Node | null = null;
+    private readonly playLevelCompleteEffectCallback = () => this.playLevelCompleteEffect();
+    private readonly playEndgameImageEffectsCallback = () => this.playEndgameImageEffects();
+    private readonly levelCompleteEffectScale: number = 0.6;
     private readonly zoomMinScale: number = 0.75;
     private readonly zoomMaxScale: number = 1.65;
     private readonly zoomStep: number = 0.1;
@@ -301,6 +314,11 @@ export class SnakeEscapeGame extends Component {
 
         this.hideEndPanel(this.getLosePanelNode());
         this.hideEndPanel(this.getWinPanelNode());
+        this.unschedule(this.playLevelCompleteEffectCallback);
+        this.unschedule(this.playEndgameImageEffectsCallback);
+        this.hideLevelCompleteEffect();
+        this.hideEndgameImageEffects();
+        this.setWinLabelVisible(true);
         this.activeEndPanel = null;
         this.setBackgroundDimmed(false);
 
@@ -724,7 +742,6 @@ export class SnakeEscapeGame extends Component {
 
         this.gameAreaTouchStart.set(uiLocation.x, uiLocation.y, 0);
         this.gameAreaStartPosition.set(this.gameArea.position);
-        this.playTapRippleEffect(uiLocation.x, uiLocation.y);
 
         if (this.isPlaying && !this.hasTimerStarted) {
             const touchedSnake = this.findTouchedSnake(uiLocation.x, uiLocation.y);
@@ -771,8 +788,11 @@ export class SnakeEscapeGame extends Component {
         if (this.finishGameAreaTouch(event)) return;
         if (!this.isPlaying) return;
 
-        const uiLocation = event.getUILocation();
-        const touchedSnake = this.findTouchedSnake(uiLocation.x, uiLocation.y);
+        if (this.isPointInsideGameArea(this.gameAreaTouchStart.x, this.gameAreaTouchStart.y)) {
+            this.playTapRippleEffect(this.gameAreaTouchStart.x, this.gameAreaTouchStart.y);
+        }
+
+        const touchedSnake = this.findTouchedSnake(this.gameAreaTouchStart.x, this.gameAreaTouchStart.y);
 
         if (!touchedSnake) return;
 
@@ -1946,20 +1966,26 @@ export class SnakeEscapeGame extends Component {
         if (this.escapedCount < this.totalSnakeCount) return;
 
         this.isPlaying = false;
-        this.soundManager?.playConfettiExplosion();
         const winPanel = this.getWinPanelNode();
 
         if (winPanel && this.isWinDotRipplePlaying) {
             this.scheduleOnce(() => {
                 if (winPanel && winPanel.isValid) {
-                    this.soundManager?.playWinPopup();
-                    this.showEndPanel(winPanel);
+                    this.showWinPanelWithEffects(winPanel);
                 }
             }, 1.05);
         } else if (winPanel) {
-            this.soundManager?.playWinPopup();
-            this.showEndPanel(winPanel);
+            this.showWinPanelWithEffects(winPanel);
         }
+    }
+
+    private showWinPanelWithEffects(winPanel: Node) {
+        this.soundManager?.playWinPopup();
+        this.soundManager?.playConfettiExplosion();
+        this.showEndPanel(winPanel);
+        this.setWinLabelVisible(false);
+        this.scheduleOnce(this.playLevelCompleteEffectCallback, 0.2);
+        this.scheduleOnce(this.playEndgameImageEffectsCallback, 0.28);
     }
 
     private showGameOver() {
@@ -2139,6 +2165,224 @@ export class SnakeEscapeGame extends Component {
 
     private getWinPanelNode(): Node | null {
         return this.findChildByNameDeep(this.node.scene, 'WinPanel');
+    }
+
+    private setWinLabelVisible(visible: boolean) {
+        const winPanel = this.getWinPanelNode();
+        const winLabel = winPanel
+            ? this.findChildByNameDeep(winPanel, 'WinLabel')
+            : this.findChildByNameDeep(this.node.scene, 'WinLabel');
+
+        if (winLabel && winLabel.isValid) {
+            winLabel.active = visible;
+        }
+    }
+
+    private playLevelCompleteEffect() {
+        const effect = this.getLevelCompleteEffect();
+        if (effect) {
+            this.positionLevelCompleteEffect(effect.node);
+        }
+
+        effect?.play();
+    }
+
+    private hideLevelCompleteEffect() {
+        const effect = this.getLevelCompleteEffect(false);
+        effect?.hide();
+    }
+
+    private getLevelCompleteEffect(allowCreate: boolean = true): LevelCompleteEffect | null {
+        if (
+            this.levelCompleteEffect &&
+            this.levelCompleteEffect.node &&
+            this.levelCompleteEffect.node.isValid
+        ) {
+            return this.levelCompleteEffect;
+        }
+
+        const existingNode =
+            (this.levelCompleteEffectNode && this.levelCompleteEffectNode.isValid ? this.levelCompleteEffectNode : null) ||
+            this.findChildByNameDeep(this.node.scene, 'LevelCompleteEffect');
+        const existingEffect = existingNode?.getComponent(LevelCompleteEffect) || null;
+
+        if (existingEffect) {
+            this.levelCompleteEffectNode = existingNode;
+            this.levelCompleteEffect = existingEffect;
+            return existingEffect;
+        }
+
+        if (!allowCreate || !this.levelCompleteEffectPrefab) return null;
+
+        const effectNode = instantiate(this.levelCompleteEffectPrefab);
+        effectNode.name = 'LevelCompleteEffect';
+        effectNode.setParent(this.getCanvasNode());
+        this.positionLevelCompleteEffect(effectNode);
+
+        this.levelCompleteEffectNode = effectNode;
+        this.levelCompleteEffect = effectNode.getComponent(LevelCompleteEffect);
+
+        return this.levelCompleteEffect;
+    }
+
+    private positionLevelCompleteEffect(effectNode: Node) {
+        const winPanel = this.getWinPanelNode();
+        const winLabel = winPanel
+            ? this.findChildByNameDeep(winPanel, 'WinLabel')
+            : this.findChildByNameDeep(this.node.scene, 'WinLabel');
+        const canvasNode = this.getCanvasNode();
+        const canvasUi = canvasNode.getComponent(UITransform);
+        const labelParentUi = winLabel?.parent?.getComponent(UITransform) || null;
+
+        effectNode.setParent(canvasNode);
+        effectNode.setScale(this.levelCompleteEffectScale, this.levelCompleteEffectScale, 1);
+
+        if (!winLabel || !winLabel.isValid || !canvasUi || !labelParentUi) {
+            effectNode.setPosition(0, 105, 0);
+            return;
+        }
+
+        const worldPosition = labelParentUi.convertToWorldSpaceAR(winLabel.position);
+        const localPosition = canvasUi.convertToNodeSpaceAR(worldPosition);
+        effectNode.setPosition(localPosition.x, localPosition.y, 0);
+    }
+
+    private playEndgameImageEffects() {
+        if (this.endgameEffectFrames.length <= 0) return;
+
+        this.hideEndgameImageEffects();
+
+        const canvasNode = this.getCanvasNode();
+        const root = new Node('EndgameImageEffects');
+        root.setParent(canvasNode);
+        root.addComponent(UITransform);
+        root.setPosition(this.getEndgameImageEffectPosition());
+        root.setSiblingIndex(canvasNode.children.length - 1);
+        this.endgameEffectRoot = root;
+
+        const layouts = [
+            { startX: -10, startY: -18, endX: -184, peakY: 92, endY: 18, angle: -34, spin: -270, scale: 1.42 },
+            { startX: -6, startY: -16, endX: -148, peakY: 116, endY: 36, angle: 18, spin: 250, scale: 1.28 },
+            { startX: -3, startY: -20, endX: -108, peakY: 82, endY: 8, angle: -12, spin: -225, scale: 1.34 },
+            { startX: 0, startY: -15, endX: -62, peakY: 126, endY: 42, angle: 16, spin: 235, scale: 1.22 },
+            { startX: 3, startY: -21, endX: -24, peakY: 98, endY: 20, angle: -20, spin: -240, scale: 1.36 },
+            { startX: 7, startY: -18, endX: 30, peakY: 120, endY: 34, angle: 30, spin: 260, scale: 1.30 },
+            { startX: 10, startY: -16, endX: 72, peakY: 88, endY: 12, angle: -26, spin: -230, scale: 1.38 },
+            { startX: 6, startY: -19, endX: 118, peakY: 128, endY: 44, angle: 22, spin: 245, scale: 1.24 },
+            { startX: 3, startY: -17, endX: 154, peakY: 108, endY: 32, angle: -18, spin: -255, scale: 1.32 },
+            { startX: 9, startY: -20, endX: 190, peakY: 84, endY: 16, angle: 32, spin: 275, scale: 1.44 },
+            { startX: -4, startY: -24, endX: -132, peakY: 62, endY: -18, angle: -8, spin: -180, scale: 1.18 },
+            { startX: 4, startY: -24, endX: 136, peakY: 66, endY: -16, angle: 10, spin: 190, scale: 1.18 },
+            { startX: -2, startY: -22, endX: -76, peakY: 72, endY: -10, angle: 24, spin: 205, scale: 1.12 },
+            { startX: 2, startY: -22, endX: 82, peakY: 76, endY: -8, angle: -24, spin: -205, scale: 1.12 },
+            { startX: -7, startY: -14, endX: -170, peakY: 132, endY: 50, angle: 12, spin: 220, scale: 1.16 },
+            { startX: 7, startY: -14, endX: 174, peakY: 136, endY: 52, angle: -12, spin: -220, scale: 1.16 },
+            { startX: -1, startY: -18, endX: -36, peakY: 138, endY: 48, angle: -30, spin: -260, scale: 1.20 },
+            { startX: 1, startY: -18, endX: 42, peakY: 142, endY: 50, angle: 30, spin: 260, scale: 1.20 },
+        ];
+        const effectCount = Math.max(layouts.length, this.endgameEffectFrames.length);
+
+        for (let i = 0; i < effectCount; i++) {
+            const frame = this.endgameEffectFrames[i % this.endgameEffectFrames.length];
+            if (!frame) continue;
+
+            const layout = layouts[i % layouts.length];
+            const node = new Node(`EndgameEffect_${i + 1}`);
+            node.setParent(root);
+            node.setPosition(layout.startX, layout.startY, 0);
+            node.angle = layout.angle;
+            node.setScale(0.1, 0.1, 1);
+
+            const ui = node.addComponent(UITransform);
+            ui.setContentSize(28, 28);
+
+            const sprite = node.addComponent(Sprite);
+            sprite.spriteFrame = frame;
+            sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+
+            const opacity = node.addComponent(UIOpacity);
+            opacity.opacity = 0;
+
+            const delay = (i % 10) * 0.026 + Math.floor(i / 10) * 0.08;
+            const peakPosition = new Vec3(layout.endX * 0.72, layout.peakY, 0);
+            const endPosition = new Vec3(layout.endX, layout.endY, 0);
+
+            tween(opacity)
+                .delay(delay)
+                .to(0.08, { opacity: 255 }, { easing: 'sineOut' })
+                .delay(0.52)
+                .to(0.32, { opacity: 0 }, { easing: 'sineIn' })
+                .start();
+
+            tween(node)
+                .delay(delay)
+                .to(0.28, {
+                    position: peakPosition,
+                    scale: new Vec3(layout.scale * 1.12, layout.scale * 1.12, 1),
+                    angle: layout.angle + layout.spin * 0.45,
+                }, { easing: 'quadOut' })
+                .to(0.58, {
+                    position: endPosition,
+                    scale: new Vec3(layout.scale * 0.72, layout.scale * 0.72, 1),
+                    angle: layout.angle + layout.spin,
+                }, { easing: 'quadIn' })
+                .call(() => {
+                    if (node && node.isValid) {
+                        node.destroy();
+                    }
+                })
+                .start();
+        }
+    }
+
+    private hideEndgameImageEffects() {
+        if (!this.endgameEffectRoot || !this.endgameEffectRoot.isValid) {
+            this.endgameEffectRoot = null;
+            return;
+        }
+
+        for (const child of this.endgameEffectRoot.children) {
+            Tween.stopAllByTarget(child);
+            const opacity = child.getComponent(UIOpacity);
+            if (opacity) {
+                Tween.stopAllByTarget(opacity);
+            }
+        }
+
+        this.endgameEffectRoot.destroy();
+        this.endgameEffectRoot = null;
+    }
+
+    private getEndgameImageEffectPosition(): Vec3 {
+        const canvasNode = this.getCanvasNode();
+        const canvasUi = canvasNode.getComponent(UITransform);
+        const winPanel = this.getWinPanelNode();
+        const winLabel = winPanel
+            ? this.findChildByNameDeep(winPanel, 'WinLabel')
+            : this.findChildByNameDeep(this.node.scene, 'WinLabel');
+        const playAgainButton = winPanel
+            ? this.findChildByNameDeep(winPanel, 'PlayAgainButton')
+            : this.findChildByNameDeep(this.node.scene, 'PlayAgainButton');
+        const winLabelPosition = this.getNodeCanvasPosition(winLabel, canvasUi);
+        const playAgainPosition = this.getNodeCanvasPosition(playAgainButton, canvasUi);
+
+        if (winLabelPosition && playAgainPosition) {
+            return new Vec3(
+                (winLabelPosition.x + playAgainPosition.x) * 0.5,
+                winLabelPosition.y * 0.24 + playAgainPosition.y * 0.76 + 18,
+                0,
+            );
+        }
+
+        return new Vec3(0, -52, 0);
+    }
+
+    private getNodeCanvasPosition(node: Node | null | undefined, canvasUi: UITransform | null): Vec3 | null {
+        const parentUi = node?.parent?.getComponent(UITransform) || null;
+        if (!node || !node.isValid || !canvasUi || !parentUi) return null;
+
+        const worldPosition = parentUi.convertToWorldSpaceAR(node.position);
+        return canvasUi.convertToNodeSpaceAR(worldPosition);
     }
 
     private playWinDotRippleEffect(originInSnakeRoot: Vec3 | null) {
