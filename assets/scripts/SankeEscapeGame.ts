@@ -199,6 +199,7 @@ export class SnakeEscapeGame extends Component {
     private readonly tickTockStartSeconds: number = 10;
     private isReplayEffectPlaying = false;
     private isWinDotRipplePlaying = false;
+    private hasShownWinEffects = false;
     private pendingWinDotRippleOrigin: Vec3 | null = null;
     private lastSnakeTapVibrationTime: number = 0;
     private readonly snakeTapVibrationCooldownMs: number = 80;
@@ -306,6 +307,7 @@ export class SnakeEscapeGame extends Component {
         this.renderedLives = -1;
         this.penalizedSnakeIds.clear();
         this.isWinDotRipplePlaying = false;
+        this.hasShownWinEffects = false;
         this.pendingWinDotRippleOrigin = null;
         this.hasTimerStarted = false;
         this.lastRenderedSecond = -1;
@@ -985,6 +987,8 @@ export class SnakeEscapeGame extends Component {
             return;
         }
 
+        this.soundManager?.playSnakeMove();
+
         // Apply final grid state immediately
         const finalStep = steps[steps.length - 1];
         snake.cells = cloneCells(finalStep.cells);
@@ -1019,12 +1023,6 @@ export class SnakeEscapeGame extends Component {
             const stepTime = this.gridStepMoveTime;
 
             for (let s = 1; s < steps.length; s++) {
-                if (i === 0) {
-                    tw.call(() => {
-                        this.soundManager?.playSnakeMove();
-                    });
-                }
-
                 const prevVp = steps[s - 1].visuals[i];
                 const curVp = steps[s].visuals[i];
                 if (!prevVp || !curVp) continue;
@@ -1980,8 +1978,10 @@ export class SnakeEscapeGame extends Component {
     }
 
     private showWinPanelWithEffects(winPanel: Node) {
+        if (this.hasShownWinEffects) return;
+
+        this.hasShownWinEffects = true;
         this.soundManager?.playWinPopup();
-        this.soundManager?.playConfettiExplosion();
         this.showEndPanel(winPanel);
         this.setWinLabelVisible(false);
         this.scheduleOnce(this.playLevelCompleteEffectCallback, 0.2);
