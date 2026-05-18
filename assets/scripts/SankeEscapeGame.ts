@@ -200,7 +200,6 @@ export class SnakeEscapeGame extends Component {
     private isReplayEffectPlaying = false;
     private isWinDotRipplePlaying = false;
     private hasShownWinEffects = false;
-    private pendingWinDotRippleOrigin: Vec3 | null = null;
     private lastSnakeTapVibrationTime: number = 0;
     private readonly snakeTapVibrationCooldownMs: number = 80;
     private loseBackdropNode: Node | null = null;
@@ -222,7 +221,6 @@ export class SnakeEscapeGame extends Component {
     private levelCompleteEffectNode: Node | null = null;
     private endgameEffectRoot: Node | null = null;
     private readonly playLevelCompleteEffectCallback = () => this.playLevelCompleteEffect();
-    private readonly playEndgameImageEffectsCallback = () => this.playEndgameImageEffects();
     private readonly levelCompleteEffectScale: number = 0.6;
     private readonly zoomMinScale: number = 0.75;
     private readonly zoomMaxScale: number = 1.65;
@@ -308,7 +306,6 @@ export class SnakeEscapeGame extends Component {
         this.penalizedSnakeIds.clear();
         this.isWinDotRipplePlaying = false;
         this.hasShownWinEffects = false;
-        this.pendingWinDotRippleOrigin = null;
         this.hasTimerStarted = false;
         this.lastRenderedSecond = -1;
         this.hasPlayedTimeoutSound = false;
@@ -317,7 +314,6 @@ export class SnakeEscapeGame extends Component {
         this.hideEndPanel(this.getLosePanelNode());
         this.hideEndPanel(this.getWinPanelNode());
         this.unschedule(this.playLevelCompleteEffectCallback);
-        this.unschedule(this.playEndgameImageEffectsCallback);
         this.hideLevelCompleteEffect();
         this.hideEndgameImageEffects();
         this.setWinLabelVisible(true);
@@ -863,7 +859,6 @@ export class SnakeEscapeGame extends Component {
         const isLastSnake = this.escapedCount === this.totalSnakeCount - 1;
         const headPosition = snake.nodes[0]?.position.clone() || null;
 
-        this.pendingWinDotRippleOrigin = isLastSnake ? headPosition : null;
         snake.canBePassedThrough = !willCollide;
 
         this.bringSnakeToFront(snake);
@@ -1432,9 +1427,8 @@ export class SnakeEscapeGame extends Component {
         this.getSnakeFace(snake)?.playHappy();
 
         if (this.escapedCount === this.totalSnakeCount - 1) {
-            const origin = this.pendingWinDotRippleOrigin || snake.nodes[0]?.position.clone() || null;
+            const origin = snake.nodes[0]?.position.clone() || null;
             this.playWinDotRippleEffect(origin);
-            this.pendingWinDotRippleOrigin = null;
         }
 
         const moveSpeed = this.cellSize / this.gridStepMoveTime;
@@ -1985,7 +1979,6 @@ export class SnakeEscapeGame extends Component {
         this.showEndPanel(winPanel);
         this.setWinLabelVisible(false);
         this.scheduleOnce(this.playLevelCompleteEffectCallback, 0.2);
-        this.scheduleOnce(this.playEndgameImageEffectsCallback, 0.28);
     }
 
     private showGameOver() {
